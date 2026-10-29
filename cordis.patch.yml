@@ -1,0 +1,38 @@
+# dsh-channel-hub 的 bundle patch。
+#
+# `insert` 往 loader 里插一行插件。`id` 是这一行的稳定身份（配置面板按它
+# 记住偏好），`name` 是包名（loader 从 profile 的 node_modules 或绝对路径解析）。
+#
+# 真正的密钥不要写在这里 —— 这个文件经常被复制/分享。优先级是
+#   环境变量 > <stateDir>/config.json > 本文件
+# stateDir 默认是 ~/.dsh/channel-hub，用 `dsh-channel-hub init` 生成模板。
+#
+# 最后一行 `disabled` 是防重复挂载：同一个包如果被别的 patch 也插了一次，
+# 这里会把自己关掉，避免两个飞书长连接抢同一个应用的事件。
+- insert:
+    - id: dsh-channel-hub
+      name: 'dsh-channel-hub'
+      config:
+        # 本地控制台：填凭证 / 连飞书 / 放行会话都在这个页面里点，
+        # 地址会打印在日志里（`控制台：http://127.0.0.1:17867/?token=...`），
+        # 也可以 `node bin/cli.mjs ui` 打开。
+        admin:
+          enabled: true
+          port: 17867
+        adapters:
+          feishu:
+            # 先把 appId / appSecret 写进 ~/.dsh/channel-hub/config.json 再打开。
+            enabled: true
+            mode: ws
+          mock:
+            enabled: false
+        security:
+          # 空 = 谁都不回。第一次用：在聊天里发 /id 拿到 peer id，再执行
+          #   node bin/cli.mjs allow feishu:oc_xxxxxxxx
+          allowPeers: []
+          allowAll: false
+        behavior:
+          progressCards: true
+          progressAfterMs: 25000
+          maxTurnMs: 1800000
+      disabled: !!js "Boolean(ctx.loader && [...ctx.loader.entries()].some((e) => e.options.name === 'dsh-channel-hub' && e.options.id !== 'dsh-channel-hub' && !e.disabled))"

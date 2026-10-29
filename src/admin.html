@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DSH 通道中枢 · 飞书连接</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #161b22; --panel2: #1c2430; --line: #263041;
+    --text: #e6edf3; --dim: #8b949e; --accent: #4c8dff; --ok: #3fb950;
+    --warn: #d29922; --bad: #f85149; --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 16px 64px; background: radial-gradient(1200px 500px at 50% -160px, #17233a 0%, var(--bg) 60%);
+    color: var(--text); font: 14px/1.65 -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  header h1 { font-size: 19px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  header .brand { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+    background: linear-gradient(140deg, #2f6fed, #7c4dff); font-size: 18px; }
+  .pill { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-size: 12.5px; color: var(--dim); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(63,185,80,.16); }
+  .dot.warn { background: var(--warn); animation: pulse 1.4s infinite; }
+  .dot.bad { background: var(--bad); box-shadow: 0 0 0 3px rgba(248,81,73,.16); }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 4px; display: flex; align-items: center; gap: 9px; font-weight: 600; }
+  .step { width: 21px; height: 21px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--line);
+    display: grid; place-items: center; font-size: 11.5px; color: var(--dim); flex: none; }
+  .card.done .step { background: rgba(63,185,80,.14); border-color: rgba(63,185,80,.45); color: var(--ok); }
+  .card p.hint { color: var(--dim); font-size: 12.5px; margin: 6px 0 16px; }
+  .card p.hint a { color: var(--accent); text-decoration: none; }
+
+  label { display: block; font-size: 12px; color: var(--dim); margin: 12px 0 6px; }
+  input[type=text], input[type=password], select {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: #0b0f14; color: var(--text); font: inherit; outline: none;
+  }
+  input:focus, select:focus { border-color: #3d6bb5; box-shadow: 0 0 0 3px rgba(76,141,255,.14); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 1 1 200px; }
+  .row > .fixed { flex: 0 0 auto; }
+
+  button { border: 1px solid var(--line); background: var(--panel2); color: var(--text);
+    padding: 10px 16px; border-radius: 10px; font: inherit; font-weight: 550; cursor: pointer;
+    transition: transform .06s ease, background .15s; }
+  button:hover { background: #232d3c; }
+  button:active { transform: translateY(1px); }
+  button.primary { background: linear-gradient(140deg, #2f6fed, #4c8dff); border-color: transparent; }
+  button.primary:hover { filter: brightness(1.08); }
+  button.ghost { background: transparent; }
+  button.danger { color: #ffb4ae; border-color: rgba(248,81,73,.4); background: rgba(248,81,73,.08); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.sm { padding: 6px 11px; font-size: 12.5px; border-radius: 8px; }
+
+  .status-line { margin-top: 14px; font-size: 12.5px; color: var(--dim); min-height: 18px; }
+  .status-line b { color: var(--text); font-weight: 550; }
+  .err { color: #ffb4ae; }
+
+  ul.peers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  ul.peers li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
+    background: var(--panel2); border: 1px solid var(--line); }
+  ul.peers code { font: 12.5px ui-monospace, Consolas, monospace; color: #a7c8ff; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  ul.peers .who { flex: 1; min-width: 0; }
+  ul.peers .who small { display: block; color: var(--dim); font-size: 11.5px; }
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: rgba(63,185,80,.14); color: var(--ok); }
+  .tag.wait { background: rgba(210,153,34,.14); color: var(--warn); }
+
+  .empty { color: var(--dim); font-size: 12.5px; padding: 14px; border: 1px dashed var(--line);
+    border-radius: 10px; text-align: center; }
+
+  details { margin-top: 6px; }
+  summary { cursor: pointer; color: var(--dim); font-size: 12.5px; }
+  pre.logs { background: #080b10; border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+    max-height: 220px; overflow: auto; font: 11.5px/1.55 ui-monospace, Consolas, monospace; color: #9fb0c4; white-space: pre-wrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 4px; }
+  .kpi { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .kpi b { display: block; font-size: 18px; font-weight: 600; }
+  .kpi span { color: var(--dim); font-size: 11.5px; }
+  footer { color: var(--dim); font-size: 11.5px; text-align: center; margin-top: 26px; }
+  #toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+    background: #22304a; border: 1px solid #33507f; color: var(--text); padding: 10px 18px; border-radius: 10px;
+    opacity: 0; transition: all .25s; pointer-events: none; font-size: 13px; max-width: 80vw; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.bad { background: #3a1d1d; border-color: #7f3333; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">◈</div>
+    <h1>DSH 通道中枢 · 飞书</h1>
+    <div class="pill"><span class="dot" id="pill-dot"></span><span id="pill-text">检查中…</span></div>
+  </header>
+
+  <section class="card" id="card-creds">
+    <h2><span class="step">1</span>填应用凭证</h2>
+    <p class="hint">飞书开放平台 → 你的应用 → <a href="https://open.feishu.cn/app" target="_blank" rel="noreferrer">凭证与基础信息</a>。
+      保存前会真的去换一次 tenant_access_token，凭证不对会直接告诉你原因。</p>
+    <label for="appId">App ID</label>
+    <input id="appId" type="text" placeholder="cli_a1b2c3d4e5f6" spellcheck="false" autocomplete="off">
+    <label for="appSecret">App Secret</label>
+    <input id="appSecret" type="password" placeholder="只在本地保存" autocomplete="off">
+    <label for="mode">连接方式</label>
+    <select id="mode">
+      <option value="ws">长连接（推荐，不需要公网 IP）</option>
+      <option value="webhook">HTTP 回调（需要公网地址）</option>
+    </select>
+    <div class="row" style="margin-top:16px">
+      <button class="primary" id="btn-save">验证并保存</button>
+      <button class="ghost fixed" id="btn-reveal" style="flex:0 0 auto">显示 Secret</button>
+    </div>
+    <div class="status-line" id="creds-status"></div>
+  </section>
+
+  <section class="card" id="card-connect">
+    <h2><span class="step">2</span>连上飞书</h2>
+    <p class="hint">点一下就连，不用重启 DSH。连上后飞书里给机器人发消息，会直接从这条连接回来。</p>
+    <div class="row">
+      <button class="primary" id="btn-connect">连接</button>
+      <button class="ghost" id="btn-disconnect">断开</button>
+    </div>
+    <div class="status-line" id="connect-status"></div>
+  </section>
+
+  <section class="card" id="card-allow">
+    <h2><span class="step">3</span>授权你的聊天窗口</h2>
+    <p class="hint">在飞书里给机器人发一句话（随便发），它第一次会回一段引导。</p>
+    <ul class="peers" id="peer-list"></ul>
+    <div class="empty" id="peer-empty">还没有收到任何会话。先在飞书里给机器人发一条消息。</div>
+    <div class="row" style="margin-top:14px">
+      <label class="fixed" style="margin:0;display:flex;align-items:center;gap:8px;flex:0 0 auto">
+        <input type="checkbox" id="allow-all" style="width:auto"> 放开所有人（不建议）
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">i</span>运行状态</h2>
+    <div class="grid" id="kpis"></div>
+    <details>
+      <summary>最近日志</summary>
+      <pre class="logs" id="logs">（还没有日志）</pre>
+    </details>
+  </section>
+
+  <footer id="footer"></footer>
+</div>
+<div id="toast"></div>
+
+<script>
+const TOKEN = '__HUB_TOKEN__';
+const $ = (id) => document.getElementById(id);
+let state = null;
+
+function toast(message, bad) {
+  const el = $('toast');
+  el.textContent = message;
+  el.className = 'show' + (bad ? ' bad' : '');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { el.className = ''; }, 3200);
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: { 'content-type': 'application/json', 'x-hub-token': TOKEN, ...(options.headers || {}) },
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.ok === false) throw new Error(body.error || ('HTTP ' + response.status));
+  return body;
+}
+
+function setPill(kind, text) {
+  $('pill-dot').className = 'dot ' + kind;
+  $('pill-text').textContent = text;
+}
+
+function renderPeers(peers) {
+  const list = $('peer-list');
+  list.innerHTML = '';
+  if (!peers || peers.length === 0) {
+    $('peer-empty').style.display = 'block';
+    return;
+  }
+  $('peer-empty').style.display = 'none';
+  for (const peer of peers) {
+    const li = document.createElement('li');
+    const who = document.createElement('div');
+    who.className = 'who';
+    const code = document.createElement('code');
+    code.textContent = peer.peerKey;
+    who.appendChild(code);
+    const small = document.createElement('small');
+    small.textContent = peer.allowed
+      ? ('已授权 · ' + (peer.turns || 0) + ' 轮 · ' + (peer.title || '未命名'))
+      : ('未授权 · 最后活跃 ' + (peer.lastSeenAt ? new Date(peer.lastSeenAt).toLocaleString() : '刚刚'));
+    who.appendChild(small);
+    li.appendChild(who);
+
+    const tag = document.createElement('span');
+    tag.className = 'tag' + (peer.allowed ? '' : ' wait');
+    tag.textContent = peer.allowed ? '已允许' : '待允许';
+    li.appendChild(tag);
+
+    const button = document.createElement('button');
+    button.className = 'sm ' + (peer.allowed ? 'danger' : 'primary');
+    button.textContent = peer.allowed ? '移除' : '允许';
+    button.onclick = async () => {
+      button.disabled = true;
+      try {
+        await api(peer.allowed ? '/api/disallow' : '/api/allow', {
+          method: 'POST',
+          body: JSON.stringify({ peerKey: peer.peerKey }),
+        });
+        toast(peer.allowed ? '已移除 ' + peer.peerKey : '已授权，去飞书再发一句话试试');
+        await refresh();
+      } catch (error) {
+        toast(String(error.message), true);
+        button.disabled = false;
+      }
+    };
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+}
+
+function render(next) {
+  state = next;
+  const feishu = next.feishu || {};
+  const connection = feishu.connection || {};
+  const pillKind = feishu.state === 'connected' ? 'ok' : feishu.state === 'starting' ? 'warn' : feishu.state === 'error' ? 'bad' : '';
+  setPill(pillKind, feishu.state === 'connected' ? '已连接' : feishu.state === 'starting' ? '连接中…' : feishu.state === 'error' ? '连接失败' : '未连接');
+
+  $('card-creds').classList.toggle('done', Boolean(feishu.configured));
+  $('card-connect').classList.toggle('done', feishu.state === 'connected');
+  $('card-allow').classList.toggle('done', (next.security?.allowPeers || []).length > 0);
+
+  if (document.activeElement !== $('appId')) $('appId').value = feishu.appId || '';
+  if (document.activeElement !== $('mode')) $('mode').value = feishu.mode || 'ws';
+  $('creds-status').innerHTML = feishu.configured
+    ? '当前：<b>' + (feishu.appId || '') + '</b> · ' + (feishu.mode === 'webhook' ? 'HTTP 回调' : '长连接') + (feishu.botName ? ' · 机器人 <b>' + feishu.botName + '</b>' : '')
+    : '<span class="err">还没保存凭证</span>';
+
+  $('connect-status').innerHTML = feishu.state === 'connected'
+    ? '<b>长连接已建立</b>' + (connection.state ? '（' + connection.state + '）' : '') + (feishu.since ? ' · 自 ' + new Date(feishu.since).toLocaleTimeString() : '')
+    : feishu.state === 'error'
+      ? '<span class="err">' + (feishu.error || '连接失败') + '</span>'
+      : '未连接。保存凭证后点「连接」。';
+  $('btn-connect').disabled = feishu.state === 'connected' || feishu.state === 'starting';
+  $('btn-disconnect').disabled = feishu.state !== 'connected' && feishu.state !== 'starting';
+
+  $('allow-all').checked = next.security?.allowAll === true;
+  renderPeers(next.peers || []);
+
+  $('kpis').innerHTML = [
+    ['会话', next.stats?.peers ?? 0],
+    ['待处理卡片', next.pending?.length ?? 0],
+    ['出站队列', next.stats?.outbox ?? 0],
+    ['通道', (next.stats?.adapters || []).join('、') || '无'],
+  ].map(([label, value]) => '<div class="kpi"><b>' + value + '</b><span>' + label + '</span></div>').join('');
+
+  const logs = next.logs || [];
+  $('logs').textContent = logs.length ? logs.join('\n') : '（还没有日志）';
+  $('footer').textContent = (next.stateDir || '') + (next.adminUrl ? ' · 控制台 ' + next.adminUrl.replace(/\?token=.*/, '') : '');
+}
+
+async function refresh() {
+  try {
+    render(await api('/api/state'));
+  } catch (error) {
+    setPill('bad', '控制台失联');
+  }
+}
+
+$('btn-save').onclick = async () => {
+  const button = $('btn-save');
+  button.disabled = true;
+  $('creds-status').textContent = '正在向飞书验证…';
+  try {
+    const result = await api('/api/credentials', {
+      method: 'POST',
+      body: JSON.stringify({ appId: $('appId').value.trim(), appSecret: $('appSecret').value.trim(), mode: $('mode').value }),
+    });
+    toast('凭证有效' + (result.bot?.name ? '：' + result.bot.name : '') + '，正在连接…');
+    $('appSecret').value = '';
+    await api('/api/connect', { method: 'POST' });
+    await refresh();
+  } catch (error) {
+    $('creds-status').innerHTML = '<span class="err">' + error.message + '</span>';
+    toast(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+};
+
+$('btn-reveal').onclick = () => {
+  const input = $('appSecret');
+  const shown = input.type === 'text';
+  input.type = shown ? 'password' : 'text';
+  $('btn-reveal').textContent = shown ? '显示 Secret' : '隐藏 Secret';
+};
+
+$('btn-connect').onclick = async () => {
+  $('btn-connect').disabled = true;
+  try {
+    await api('/api/connect', { method: 'POST' });
+    await refresh();
+  } catch (error) {
+    toast(error.message, true);
+    $('btn-connect').disabled = false;
+  }
+};
+
+$('btn-disconnect').onclick = async () => {
+  try {
+    await api('/api/disconnect', { method: 'POST' });
+    toast('已断开');
+    await refresh();
+  } catch (error) {
+    toast(error.message, true);
+  }
+};
+
+$('allow-all').onchange = async (event) => {
+  try {
+    await api('/api/open-allow-all', { method: 'POST', body: JSON.stringify({ value: event.target.checked }) });
+    toast(event.target.checked ? '已放开所有人（谨慎）' : '已恢复白名单模式');
+    await refresh();
+  } catch (error) {
+    toast(error.message, true);
+  }
+};
+
+// SSE：状态变化立刻刷新；断线自动退回轮询。
+try {
+  const events = new EventSource('/api/events?token=' + encodeURIComponent(TOKEN));
+  events.addEventListener('state', () => { void refresh(); });
+  events.onerror = () => { /* 浏览器会自己重连 */ };
+} catch { /* 老浏览器就只靠轮询 */ }
+
+void refresh();
+setInterval(() => { void refresh(); }, 2500);
+</script>
+</body>
+</html>

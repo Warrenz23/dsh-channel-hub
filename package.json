@@ -1,0 +1,69 @@
+{
+  "name": "dsh-channel-hub",
+  "version": "0.2.0",
+  "description": "把飞书（Lark）变成 DeepSeek Harness 的远程控制台：长连接接入，无需公网 IP；带可视化配置页面、审批卡、图片/语音。Feishu channel for DSH.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "feishu",
+    "lark",
+    "channel",
+    "bot",
+    "long-connection",
+    "approval-card"
+  ],
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-channel-hub": "bin/cli.mjs",
+    "dsh-hub": "bin/cli.mjs"
+  },
+  "files": [
+    "src",
+    "bin",
+    "docs",
+    "skills",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test --test-isolation=none \"test/**/*.test.js\"",
+    "ui": "node bin/cli.mjs ui",
+    "status": "node bin/cli.mjs status",
+    "doctor": "node bin/cli.mjs doctor",
+    "init": "node bin/cli.mjs init",
+    "install-dsh": "node bin/install.mjs",
+    "demo": "node bin/demo.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.44.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "manifestVersion": 1
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Warrenz23/dsh-channel-hub.git"
+  },
+  "homepage": "https://github.com/Warrenz23/dsh-channel-hub#readme",
+  "bugs": {
+    "url": "https://github.com/Warrenz23/dsh-channel-hub/issues"
+  }
+}
